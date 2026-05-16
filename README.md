@@ -2,7 +2,58 @@
 
 Configuração de uma máquina Windows 10 Home preparada para um aluno aprender **Python básico** e depois **desenvolvimento web simples** (Flask como backend + HTML/CSS/JS puro como frontend).
 
-Este repositório não contém código de aplicação — é um registro do **ambiente de desenvolvimento** montado e das decisões tomadas. Outras pessoas que precisarem montar uma máquina parecida podem usar como ponto de partida.
+Este repositório contém o script `setup-brilhamais.ps1` que **replica o setup completo em uma máquina nova**, além do registro das decisões tomadas.
+
+## Como usar (replicar em uma máquina nova)
+
+1. Abra o **PowerShell** (qualquer versão, 5.1 ou 7).
+2. Baixe e execute o script:
+
+   ```powershell
+   # Permite scripts da sessão atual (não persiste)
+   Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
+
+   # Baixa direto do GitHub
+   Invoke-WebRequest `
+     -Uri "https://raw.githubusercontent.com/rafael-negrao/configuracao-brilhamais/main/setup-brilhamais.ps1" `
+     -OutFile "$env:USERPROFILE\setup-brilhamais.ps1"
+
+   # Executa todas as fases
+   & "$env:USERPROFILE\setup-brilhamais.ps1"
+   ```
+
+3. Quando a **Fase 3 (WSL2)** terminar, o script **pausa e pede reboot**. Reinicie a máquina.
+4. Após reiniciar, **abra o Ubuntu uma vez** no Menu Iniciar para definir usuário/senha.
+5. Rode o script novamente — ele detecta o estado e segue da Fase 4 (Docker Desktop) em diante:
+
+   ```powershell
+   & "$env:USERPROFILE\setup-brilhamais.ps1"
+   ```
+
+6. Abra o Docker Desktop manualmente uma vez para aceitar os termos.
+
+### Modos do script
+
+| Comando | Efeito |
+|---|---|
+| `.\setup-brilhamais.ps1` | Roda todas as fases na ordem (padrão) |
+| `.\setup-brilhamais.ps1 -Phase status` | Só mostra o estado atual da máquina |
+| `.\setup-brilhamais.ps1 -Phase 5` | Roda apenas a fase 5 (VS Code + git config) |
+
+### Fases
+
+| Fase | O quê | Admin? | Reboot? |
+|---|---|---|---|
+| 1 | winget + PS7 + Python + VS Code + DBeaver + gh CLI | UAC só na instalação do PS7 | Não |
+| 2 | Perfil do PowerShell 7 (`$PROFILE`) | Não | Não |
+| 3 | WSL2 + Ubuntu (`wsl --install`) | Auto-elevação (UAC) | **Sim** |
+| 4 | Docker Desktop (pós-reboot) | UAC pelo winget | Não |
+| 5 | Git config global + VS Code settings + 8 extensões | Não | Não |
+| 6 | Validação final (smoke tests) | Não | Não |
+
+O script é **idempotente** — pode ser executado quantas vezes precisar. Cada passo verifica se já foi feito e pula no caso afirmativo.
+
+---
 
 ## Ambiente
 
