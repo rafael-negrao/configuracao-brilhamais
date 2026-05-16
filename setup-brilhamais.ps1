@@ -15,8 +15,9 @@
     retoma de onde parou.
 
 .PARAMETER Phase
-    Numero da fase a executar (1..6), 'all' para tudo em sequencia (padrao),
-    ou 'status' para apenas verificar o estado atual da maquina.
+    Numero da fase a executar (0..6), 'all' para tudo em sequencia (padrao),
+    'preflight' (alias de 0) para apenas avaliar o ambiente,
+    ou 'status' para apenas validar o estado pos-instalacao (alias de 6).
 
 .EXAMPLE
     .\setup-brilhamais.ps1
@@ -36,7 +37,7 @@
 #>
 [CmdletBinding()]
 param(
-    [ValidateSet('all', 'status', '1', '2', '3', '4', '5', '6')]
+    [ValidateSet('all', 'status', 'preflight', '0', '1', '2', '3', '4', '5', '6')]
     [string]$Phase = 'all'
 )
 
@@ -159,6 +160,128 @@ function Install-WingetPackage {
         Write-Step "$DisplayName instalado" 'OK'
     } else {
         Write-Step "$DisplayName retornou exit code $LASTEXITCODE" 'Warn'
+    }
+}
+
+# ======================================================================
+#  Fase 0: Preflight - avalia o ambiente antes de instalar
+# ======================================================================
+
+function Invoke-Phase0 {
+    Write-Phase '0' 'Preflight - avaliacao do ambiente'
+
+    $blocking = 0
+    $warnings = 0
+
+    # --- Windows build ---
+    $ver = [System.Environment]::OSVersion.Version
+    if ($ver.Build -ge 19041) {
+        Write-Step ("Windows build {0} (>=19041, ok para WSL2)" -f $ver.Build) 'OK'
+    } else {
+        Write-Step ("Windows build {0} - precisa >=19041 (Win10 v2004 de 2020 ou Win11)" -f $ver.Build) 'Err'
+        $blocking++
+    }
+
+    # --- CPU: virtualizacao no firmware ---
+    # IMPORTANTE: quando um hipervisor (Hyper-V/WSL2) ja esta ativo, o Windows
+    # esconde VirtualizationFirmwareEnabled e SLAT do Win32_Processor (retornam
+    # False mesmo a CPU tendo o recurso). Detectamos isso antes para nao dar
+    # falso positivo na 2a execucao do script.
+    $hyperVisorActive = $false
+    try {
+        $cs = Get-CimInstance Win32_ComputerSystem -ErrorAction Stop
+        $hyperVisorActive = [bool]$cs.HypervisorPresent
+    } catch {}
+
+    if ($hyperVisorActive) {
+        Write-Step "CPU: hipervisor ja ativo (Hyper-V/WSL2) - virtualizacao habilitada (inferido)" 'OK'
+    } else {
+        try {
+            $cpu = Get-CimInstance Win32_Processor -ErrorAction Stop | Select-Object -First 1
+            if ($cpu.VirtualizationFirmwareEnabled) {
+                Write-Step "CPU: virtualizacao habilitada no firmware" 'OK'
+            } else {
+                Write-Step "CPU: virtualizacao DESABILITADA no firmware - habilite Intel VT-x / AMD-V no BIOS/UEFI" 'Err'
+                $blocking++
+            }
+            if ($cpu.SecondLevelAddressTranslationExtensions) {
+                Write-Step "CPU: SLAT (Second Level Address Translation) presente" 'OK'
+            } else {
+                Write-Step "CPU: SLAT ausente - WSL2 e Docker Desktop nao funcionarao nessa CPU" 'Err'
+                $blocking++
+            }
+        } catch {
+            Write-Step "Nao foi possivel ler caracteristicas da CPU - prosseguindo" 'Warn'
+            $warnings++
+        }
+    }
+
+    # --- RAM ---
+    try {
+        $ramGB = [math]::Round((Get-CimInstance Win32_ComputerSystem -ErrorAction Stop).TotalPhysicalMemory / 1GB, 1)
+        if ($ramGB -ge 8) {
+            Write-Step ("RAM: {0} GB" -f $ramGB) 'OK'
+        } elseif ($ramGB -ge 4) {
+            Write-Step ("RAM: {0} GB - funciona mas Docker Desktop pode ficar apertado (ideal 8 GB+)" -f $ramGB) 'Warn'
+            $warnings++
+        } else {
+            Write-Step ("RAM: {0} GB - insuficiente, minimo 4 GB" -f $ramGB) 'Err'
+            $blocking++
+        }
+    } catch {
+        Write-Step "Nao foi possivel ler total de RAM" 'Warn'
+        $warnings++
+    }
+
+    # --- Disco C: ---
+    try {
+        $diskC = Get-PSDrive C -ErrorAction Stop
+        $freeGB = [math]::Round($diskC.Free / 1GB, 1)
+        if ($freeGB -ge 15) {
+            Write-Step ("Disco C:\ - {0} GB livres" -f $freeGB) 'OK'
+        } elseif ($freeGB -ge 10) {
+            Write-Step ("Disco C:\ - {0} GB livres (apertado, ideal 15 GB+)" -f $freeGB) 'Warn'
+            $warnings++
+        } else {
+            Write-Step ("Disco C:\ - {0} GB livres - insuficiente, minimo 10 GB" -f $freeGB) 'Err'
+            $blocking++
+        }
+    } catch {
+        Write-Step "Nao foi possivel ler espaco do disco C" 'Warn'
+        $warnings++
+    }
+
+    # --- Conectividade com GitHub (necessario para downloads) ---
+    $hasInternet = $false
+    try {
+        $resp = Invoke-WebRequest -Uri 'https://github.com' -Method Head -TimeoutSec 8 -UseBasicParsing -ErrorAction Stop
+        $hasInternet = ($resp.StatusCode -lt 500)
+    } catch {}
+    if ($hasInternet) {
+        Write-Step "Internet: github.com acessivel" 'OK'
+    } else {
+        Write-Step "Internet: github.com nao respondeu em 8s - downloads de winget/Docker vao falhar" 'Err'
+        $blocking++
+    }
+
+    # --- Permissao de admin (informativo) ---
+    if (Test-IsAdmin) {
+        Write-Step "Sessao atual: ADMIN (UAC nao sera solicitado novamente)" 'OK'
+    } else {
+        Write-Step "Sessao atual: usuario normal - UAC sera solicitado para Fase 3 (WSL2) e Fase 4 (Docker)" 'Warn'
+        $warnings++
+    }
+
+    # --- Resumo ---
+    Write-Host ''
+    if ($blocking -gt 0) {
+        Write-Step ("Preflight: {0} problema(s) CRITICO(s). Corrija antes de prosseguir." -f $blocking) 'Err'
+        throw 'Preflight falhou. Setup abortado.'
+    }
+    if ($warnings -gt 0) {
+        Write-Step ("Preflight: {0} aviso(s) nao-bloqueante(s). Prosseguindo." -f $warnings) 'Warn'
+    } else {
+        Write-Step 'Preflight: tudo OK, ambiente apto para o setup completo.' 'OK'
     }
 }
 
@@ -498,14 +621,17 @@ Write-Host '+----------------------------------------------------------------+' 
 Write-Host ''
 
 switch ($Phase) {
-    '1'      { Invoke-Phase1 }
-    '2'      { Invoke-Phase2 }
-    '3'      { [void](Invoke-Phase3) }
-    '4'      { Invoke-Phase4 }
-    '5'      { Invoke-Phase5 }
-    '6'      { Invoke-Phase6 }
-    'status' { Invoke-Phase6 }
+    '0'         { Invoke-Phase0 }
+    'preflight' { Invoke-Phase0 }
+    '1'         { Invoke-Phase1 }
+    '2'         { Invoke-Phase2 }
+    '3'         { [void](Invoke-Phase3) }
+    '4'         { Invoke-Phase4 }
+    '5'         { Invoke-Phase5 }
+    '6'         { Invoke-Phase6 }
+    'status'    { Invoke-Phase6 }
     'all' {
+        Invoke-Phase0
         Invoke-Phase1
         Invoke-Phase2
         $needsReboot = Invoke-Phase3

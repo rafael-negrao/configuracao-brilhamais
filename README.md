@@ -37,19 +37,23 @@ Este repositório contém o script `setup-brilhamais.ps1` que **replica o setup 
 | Comando | Efeito |
 |---|---|
 | `.\setup-brilhamais.ps1` | Roda todas as fases na ordem (padrão) |
-| `.\setup-brilhamais.ps1 -Phase status` | Só mostra o estado atual da máquina |
+| `.\setup-brilhamais.ps1 -Phase preflight` | Só **avalia o ambiente** (não instala nada) |
+| `.\setup-brilhamais.ps1 -Phase status` | Só mostra o estado **pós-instalação** |
 | `.\setup-brilhamais.ps1 -Phase 5` | Roda apenas a fase 5 (VS Code + git config) |
 
 ### Fases
 
 | Fase | O quê | Admin? | Reboot? |
 |---|---|---|---|
+| **0 (preflight)** | **Avalia ambiente: build do Windows, virtualização da CPU, RAM, disco, internet, admin. Aborta se houver erro crítico.** | Não | Não |
 | 1 | winget + PS7 + Python + VS Code + DBeaver + gh CLI | UAC só na instalação do PS7 | Não |
 | 2 | Perfil do PowerShell 7 (`$PROFILE`) | Não | Não |
 | 3 | WSL2 + Ubuntu (`wsl --install`) | Auto-elevação (UAC) | **Sim** |
 | 4 | Docker Desktop (pós-reboot) | UAC pelo winget | Não |
 | 5 | Git config global + VS Code settings + 8 extensões | Não | Não |
-| 6 | Validação final (smoke tests) | Não | Não |
+| 6 (status) | Validação final pós-instalação (smoke tests) | Não | Não |
+
+A Fase 0 detecta automaticamente quando o hypervisor já está ativo (após a Fase 3 + reboot) e, nesse caso, **infere** que a virtualização da CPU está habilitada — caso contrário daria falso positivo na segunda execução do script (porque o Windows esconde `VirtualizationFirmwareEnabled` quando o Hyper-V/WSL2 está em uso).
 
 O script é **idempotente** — pode ser executado quantas vezes precisar. Cada passo verifica se já foi feito e pula no caso afirmativo.
 
