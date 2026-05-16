@@ -84,7 +84,9 @@ Tudo foi instalado via `winget` quando possível, preferencialmente com `--scope
 
 ## Estrutura
 
-- `CLAUDE.md` — instruções para o Claude Code (claude.ai/code) operar nesta máquina em sessões futuras. Inclui estado do setup, convenções e o que não fazer.
+- `setup-brilhamais.ps1` — script principal de provisionamento, em 6 fases idempotentes (+ Fase 0 de preflight).
+- `licoes-aprendidas/` — armadilhas técnicas e decisões didáticas acumuladas durante o setup. Veja o [índice](licoes-aprendidas/README.md).
+- `CLAUDE.md` — instruções para o [Claude Code](https://claude.com/claude-code) operar nesta máquina em sessões futuras. Inclui estado do setup, convenções e o que não fazer.
 - `README.md` — este arquivo.
 
 ## Setup paralelo do PowerShell 7
