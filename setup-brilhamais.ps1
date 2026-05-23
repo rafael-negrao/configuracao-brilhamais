@@ -415,12 +415,18 @@ function global:prompt {
 
 function Test-WSLReady {
     if (-not (Test-CommandExists 'wsl')) { return $false }
+    # wsl.exe emite UTF-16 LE; sem ajustar OutputEncoding, o -match falha
+    # mesmo com Ubuntu instalado (bytes vem como "U\0b\0u\0n\0t\0u\0").
+    $originalEncoding = [Console]::OutputEncoding
     try {
-        $list = wsl -l -v 2>&1
+        [Console]::OutputEncoding = [System.Text.Encoding]::Unicode
+        $list = wsl -l -v 2>&1 | Out-String
         if ($LASTEXITCODE -ne 0) { return $false }
         return ($list -match 'Ubuntu')
     } catch {
         return $false
+    } finally {
+        [Console]::OutputEncoding = $originalEncoding
     }
 }
 
@@ -590,7 +596,14 @@ function Invoke-Phase6 {
             $p = "$env:LOCALAPPDATA\DBeaver\dbeaver.exe"
             if (Test-Path $p) { (Get-Item $p).VersionInfo.ProductVersion } else { $null }
           } },
-        @{ Name = 'wsl';     Cmd = { (wsl -l -v 2>&1 | Out-String).Trim() } },
+        @{ Name = 'wsl';     Cmd = {
+            # ver Test-WSLReady: wsl.exe emite UTF-16 LE
+            $enc = [Console]::OutputEncoding
+            try {
+                [Console]::OutputEncoding = [System.Text.Encoding]::Unicode
+                (wsl -l -v 2>&1 | Out-String).Trim()
+            } finally { [Console]::OutputEncoding = $enc }
+          } },
         @{ Name = 'docker';  Cmd = { docker --version } }
     )
 
