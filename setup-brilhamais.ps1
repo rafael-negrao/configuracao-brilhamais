@@ -334,6 +334,7 @@ function Invoke-Phase1 {
         Write-Step "winget ja presente ($(winget --version))" 'Skip'
     }
 
+    Install-WingetPackage -Id 'Git.Git'                      -DisplayName 'Git'
     Install-WingetPackage -Id 'Microsoft.PowerShell'         -DisplayName 'PowerShell 7'
     Install-WingetPackage -Id 'Python.Python.3.13'           -DisplayName 'Python 3.13'   -ExtraArgs @('--scope', 'user')
     Install-WingetPackage -Id 'Microsoft.VisualStudioCode'   -DisplayName 'VS Code'       -ExtraArgs @('--scope', 'user')
@@ -563,6 +564,7 @@ function Invoke-Phase5 {
         'mhutchie.git-graph',
         'esbenp.prettier-vscode',
         'ritwickdey.LiveServer',
+        'ms-vscode.live-server',
         'rangav.vscode-thunder-client'
     )
     $installed = @(code --list-extensions 2>$null) -split "`r?`n"
