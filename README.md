@@ -59,6 +59,92 @@ O script é **idempotente** — pode ser executado quantas vezes precisar. Cada 
 
 ---
 
+## Executar sem clonar o repositório
+
+Os scripts de contas são independentes entre si — dá para baixar e rodar só o que você precisa, sem clonar nada.
+
+Em máquinas antigas, o `Invoke-WebRequest` pode falhar com erro de SSL porque o PowerShell 5.1 não negocia TLS 1.2 por padrão. A linha `SecurityProtocol` resolve isso e é inofensiva onde já funciona.
+
+### Listar as contas locais
+
+Somente leitura, não pede UAC.
+
+```powershell
+# Permite scripts da sessão atual (não persiste)
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
+# Baixa direto do GitHub
+Invoke-WebRequest `
+  -Uri "https://raw.githubusercontent.com/rafael-negrao/configuracao-brilhamais/main/listar-usuarios.ps1" `
+  -OutFile "$env:USERPROFILE\listar-usuarios.ps1"
+
+# Executa
+& "$env:USERPROFILE\listar-usuarios.ps1"
+
+# Variações
+& "$env:USERPROFILE\listar-usuarios.ps1" -AdminsOnly
+& "$env:USERPROFILE\listar-usuarios.ps1" -Detailed -IncludeBuiltIn
+```
+
+### Criar o usuário administrador
+
+Pede elevação sozinho (UAC).
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
+Invoke-WebRequest `
+  -Uri "https://raw.githubusercontent.com/rafael-negrao/configuracao-brilhamais/main/criar-usuario-admin.ps1" `
+  -OutFile "$env:USERPROFILE\criar-usuario-admin.ps1"
+
+# Pergunta a senha, com confirmação e sem eco na tela
+& "$env:USERPROFILE\criar-usuario-admin.ps1"
+
+# Desatendido
+& "$env:USERPROFILE\criar-usuario-admin.ps1" -Password '<SENHA_AQUI>'
+
+# Outro nome de conta
+& "$env:USERPROFILE\criar-usuario-admin.ps1" -UserName 'suporte_bm' -FullName 'Suporte BrilhaMais'
+```
+
+### Remover o usuário administrador
+
+Pede elevação sozinho (UAC) e confirmação digitada.
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
+Invoke-WebRequest `
+  -Uri "https://raw.githubusercontent.com/rafael-negrao/configuracao-brilhamais/main/remover-usuario-admin.ps1" `
+  -OutFile "$env:USERPROFILE\remover-usuario-admin.ps1"
+
+# Remove a conta, PRESERVANDO C:\Users\admin_brilhamais
+& "$env:USERPROFILE\remover-usuario-admin.ps1"
+
+# Remove a conta E apaga o perfil (irreversível)
+& "$env:USERPROFILE\remover-usuario-admin.ps1" -RemoveProfile
+```
+
+### Baixar os três de uma vez
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
+$base = "https://raw.githubusercontent.com/rafael-negrao/configuracao-brilhamais/main"
+foreach ($s in 'listar-usuarios','criar-usuario-admin','remover-usuario-admin') {
+    Invoke-WebRequest -Uri "$base/$s.ps1" -OutFile "$env:USERPROFILE\$s.ps1"
+    Write-Host "baixado: $s.ps1"
+}
+```
+
+> **Antes de executar**, confira que a URL aponta para `rafael-negrao/configuracao-brilhamais` e dê uma olhada no arquivo baixado (`notepad "$env:USERPROFILE\criar-usuario-admin.ps1"`). Rodar script da internet com privilégio de administrador merece esse minuto de atenção — vale para estes e para qualquer outro.
+
+---
+
 ## Criar usuário administrador local
 
 O `criar-usuario-admin.ps1` cria (ou reconfigura) uma conta local com perfil de administrador. É independente do `setup-brilhamais.ps1` — útil para provisionar a conta de manutenção antes ou depois do setup principal.
