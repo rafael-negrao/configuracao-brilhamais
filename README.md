@@ -147,7 +147,7 @@ Invoke-WebRequest `
 & "$env:USERPROFILE\remover-usuario-admin.ps1" -RemoveProfile
 ```
 
-### Baixar os três de uma vez
+### Baixar os quatro de uma vez
 
 ```powershell
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
