@@ -1,8 +1,8 @@
 # configuracao-brilhamais
 
-Configuração de uma máquina Windows 10 Home preparada para um aluno aprender **Python básico** e depois **desenvolvimento web simples** (Flask como backend + HTML/CSS/JS puro como frontend).
+Configuração de uma máquina Windows (10 ou 11, Home) preparada para um aluno aprender **Python básico** e depois **desenvolvimento web simples** (Flask como backend + HTML/CSS/JS puro como frontend).
 
-Este repositório contém o script `setup-brilhamais.ps1` que **replica o setup completo em uma máquina nova**, além do registro das decisões tomadas.
+Este repositório contém o script `setup-brilhamais.ps1` que **replica o setup completo em uma máquina nova**, scripts auxiliares para gerenciar contas locais, e o registro das decisões tomadas.
 
 ## Como usar (replicar em uma máquina nova)
 
@@ -233,17 +233,39 @@ Código de saída: `0` sucesso ou nada a fazer · `1` erro · `2` cancelado na c
 
 ## Ambiente
 
-| Ferramenta | Versão | Por quê |
-|---|---|---|
-| PowerShell 7 | 7.6.1 | Shell moderno, melhor que o PS 5.1 que vem por padrão no Windows |
-| Python | 3.13.13 | Versão estável atual; suficiente para tudo que o aluno vai fazer |
-| VS Code | 1.119.0 | Editor com Python + GitLens + Live Server + Thunder Client |
-| WSL2 + Ubuntu | kernel 6.6 | Para Docker e quando o aluno avançar pro mundo Linux |
-| Docker Desktop | 29.4.3 | Containers, com integração WSL2 automática |
-| DBeaver Community | 26.0.4 | Cliente universal de banco de dados |
-| GitHub CLI | 2.92 | Criar repos, abrir PRs sem sair do terminal |
+### O que o `setup-brilhamais.ps1` instala
 
-Tudo foi instalado via `winget` quando possível, preferencialmente com `--scope user`.
+O script não fixa versão: pede o pacote ao `winget`, que entrega a versão estável do momento. Por isso a coluna abaixo traz o **ID do pacote**, não um número que envelhece.
+
+| Ferramenta | Pacote winget | Escopo | Por quê |
+|---|---|---|---|
+| PowerShell 7 | `Microsoft.PowerShell` | machine | Shell moderno, melhor que o PS 5.1 que vem por padrão no Windows |
+| Python | `Python.Python.3.13` | `--scope user` | Versão estável atual; suficiente para tudo que o aluno vai fazer |
+| VS Code | `Microsoft.VisualStudioCode` | `--scope user` | Editor com Python + GitLens + Live Server + Thunder Client |
+| DBeaver Community | `DBeaver.DBeaver.Community` | `--scope user` | Cliente universal de banco de dados |
+| GitHub CLI | `GitHub.cli` | machine | Criar repos, abrir PRs sem sair do terminal |
+| Docker Desktop | `Docker.DockerDesktop` | machine | Containers, com integração WSL2 automática |
+| WSL2 + Ubuntu | `wsl --install` | machine | Para Docker e quando o aluno avançar pro mundo Linux |
+
+Preferência por `--scope user` onde o pacote suporta — evita UAC.
+
+### O que está instalado na máquina de referência
+
+Medido em **2026-08-22** em `DESKTOP-386PSAG` (Windows 11 Home Single Language, build 26200.8875, pt-BR · Intel i5-8265U · 11,9 GB RAM).
+
+| Ferramenta | Versão | Escopo |
+|---|---|---|
+| Git | 2.47.1.windows.2 | machine |
+| Python | 3.12.8 | machine |
+| VS Code | 1.119.0 | machine |
+| winget | v1.29.290 | user |
+| Docker Desktop | 29.3.1 (build `c2be9cc`) | machine |
+| Docker Compose | v5.1.0 | — |
+| WSL | 2.7.11.0 · kernel 6.18.33.2-2 · WSLg 1.0.73.2 | machine |
+
+**Ainda não instalados nesta máquina**, embora o script os preveja: **PowerShell 7**, **Ubuntu no WSL2** (só existe a distro interna `docker-desktop`), **DBeaver Community** e **GitHub CLI**.
+
+> ⚠️ A máquina de referência **divergiu** do que o script instala — note o Python 3.12 em escopo machine, onde o script pede 3.13 em escopo user. Rode `.\setup-brilhamais.ps1 -Phase status` para conferir o estado real antes de assumir qualquer coisa desta tabela. O `CLAUDE.md` detalha as divergências, incluindo extensões do VS Code e `settings.json`.
 
 ## Por que essas escolhas e não outras
 
@@ -266,10 +288,12 @@ Tudo foi instalado via `winget` quando possível, preferencialmente com `--scope
 
 ## Setup paralelo do PowerShell 7
 
-O perfil do PS7 (`$PROFILE` em `~\Documents\PowerShell\Microsoft.PowerShell_profile.ps1`) define:
+A **Fase 2** cria o perfil do PS7 (`$PROFILE` em `~\Documents\PowerShell\Microsoft.PowerShell_profile.ps1`) com:
 - UTF-8 como entrada/saída padrão
 - PSReadLine com predição inline e busca por prefixo (↑/↓)
 - Funções `ll`, `touch`, `which`
 - Prompt mostrando branch git quando aplicável
 
-Não está versionado neste repositório porque o caminho é pessoal — quem reproduzir o setup pode copiar do `CLAUDE.md`.
+O arquivo em si não é versionado aqui porque o caminho é pessoal — o conteúdo é gerado pelo script.
+
+> Na máquina de referência esse perfil **não existe**, porque o PowerShell 7 ainda não foi instalado (Fase 1 não rodou lá).
