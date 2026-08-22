@@ -39,6 +39,12 @@
     Marca a senha como expirada, obrigando o aluno a definir uma nova no
     primeiro logon. Desligado por padrao.
 
+    Por padrao (sem esta opcao) a senha NUNCA expira: o aluno usa a mesma
+    senha o ano letivo inteiro, sem aviso de expiracao no meio da aula.
+    Este parametro e a unica forma de mudar isso, e desliga o
+    PasswordNeverExpires da conta - as duas coisas sao mutuamente exclusivas
+    no Windows.
+
 .PARAMETER Force
     Nao pede confirmacao.
 
@@ -203,12 +209,23 @@ try {
     else {
         New-LocalUser -Name $UserName -Password $securePw `
                       -FullName $fullName -Description $description `
-                      -AccountNeverExpires -PasswordNeverExpires | Out-Null
+                      -AccountNeverExpires | Out-Null
         Write-Log "Conta '$UserName' criada." 'OK'
     }
 
-    if (-not $ExigirTrocaSenha) {
+    # Politica de expiracao da senha ------------------------------------------
+    # Por padrao a senha NUNCA expira - o aluno usa a mesma senha o ano todo.
+    #
+    # Com -ExigirTrocaSenha e obrigatorio DESLIGAR PasswordNeverExpires antes de
+    # marcar PasswordExpired: a flag DONT_EXPIRE_PASSWD (65536) tem precedencia e
+    # faz o Windows ignorar o "deve trocar no proximo logon" silenciosamente -
+    # a conta e criada, nenhum erro aparece, e a troca simplesmente nunca e pedida.
+    if ($ExigirTrocaSenha) {
+        Set-LocalUser -Name $UserName -PasswordNeverExpires $false
+    }
+    else {
         Set-LocalUser -Name $UserName -PasswordNeverExpires $true
+        Write-Log "Senha configurada para nunca expirar." 'OK'
     }
 
     # Grupo ------------------------------------------------------------------
@@ -241,7 +258,25 @@ try {
         $adsi = [ADSI]"WinNT://./$UserName,user"
         $adsi.PasswordExpired = 1
         $adsi.SetInfo()
-        Write-Log "O aluno tera de definir uma nova senha no primeiro logon." 'OK'
+
+        # Confere de fato, em vez de confiar que o SetInfo pegou.
+        $check = [ADSI]"WinNT://./$UserName,user"
+        if ($check.PasswordExpired.Value -eq 1) {
+            Write-Log "O aluno tera de definir uma nova senha no primeiro logon." 'OK'
+        }
+        else {
+            throw "Nao foi possivel exigir a troca de senha (PasswordExpired continua 0). Verifique se a politica local permite."
+        }
+    }
+
+    # Confere o estado final da senha -----------------------------------------
+    $flags = ([ADSI]"WinNT://./$UserName,user").UserFlags.Value
+    $nuncaExpira = [bool]($flags -band 65536)   # DONT_EXPIRE_PASSWD
+    if ($ExigirTrocaSenha -and $nuncaExpira) {
+        throw "Estado inconsistente: -ExigirTrocaSenha pedido, mas a senha esta marcada para nunca expirar."
+    }
+    if (-not $ExigirTrocaSenha -and -not $nuncaExpira) {
+        throw "Estado inconsistente: a senha deveria nunca expirar, mas DONT_EXPIRE_PASSWD nao ficou ativo."
     }
 
     # Resumo -----------------------------------------------------------------
@@ -258,6 +293,9 @@ try {
     Write-Host "  Turma $Turma / $Ano | grupo: $groupName" -ForegroundColor Gray
     if ($ExigirTrocaSenha) {
         Write-Host "  Sera pedida a troca da senha no primeiro logon." -ForegroundColor Gray
+    }
+    else {
+        Write-Host "  A senha nunca expira." -ForegroundColor Gray
     }
     Write-Host "  O perfil C:\Users\$UserName sera criado no primeiro logon." -ForegroundColor DarkGray
     Write-Host "  Log: $logPath" -ForegroundColor DarkGray

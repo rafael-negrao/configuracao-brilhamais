@@ -235,13 +235,15 @@ O `criar-usuario-aluno.ps1` cria uma conta local por turma, com nome e senha der
 
 A senha é a mesma para todas as turmas do mesmo ano — a ideia é ser fácil de ditar em voz alta no laboratório. Ela satisfaz a política de complexidade padrão do Windows (maiúscula, minúscula, número e símbolo).
 
+**A senha nunca expira.** O aluno usa a mesma senha o ano letivo inteiro, sem aviso de expiração aparecendo no meio da aula. O script confere esse estado ao final e falha se não conseguir aplicá-lo, em vez de dizer "sucesso" sobre uma conta configurada errado.
+
 | Parâmetro | Padrão | O quê |
 |---|---|---|
 | `-Turma` | _(obrigatório)_ | Letras, números e hífen, até 9 caracteres (`3A`, `101`, `INFO-2`) |
 | `-Ano` | ano corrente | Ano letivo, de 2000 a 2100 |
 | `-Password` | `Aluno@<ano>` | Sobrescreve a senha padrão |
 | `-TipoConta` | `Administrador` | `Padrao` cria sem privilégio administrativo |
-| `-ExigirTrocaSenha` | _(desligado)_ | Obriga o aluno a definir nova senha no primeiro logon |
+| `-ExigirTrocaSenha` | _(desligado)_ | Obriga o aluno a definir nova senha no primeiro logon. **Desliga** o "nunca expira" — as duas coisas são mutuamente exclusivas no Windows |
 | `-Force` | _(desligado)_ | Pula a confirmação |
 
 Ao final, o script imprime as credenciais prontas para entregar ao aluno:
