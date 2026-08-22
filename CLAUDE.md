@@ -129,6 +129,8 @@ Esta máquina está sendo preparada para um aluno que vai aprender Python básic
 
 - `setup-brilhamais.ps1` — provisionamento em 6 fases idempotentes (+ Fase 0 de preflight).
 - `criar-usuario-admin.ps1` — cria/reconfigura uma conta local de administrador. Idempotente, com auto-elevação via UAC, resolve o grupo Administradores pelo SID `S-1-5-32-544` (independe do idioma do Windows) e grava log ao lado do script.
+- `remover-usuario-admin.ps1` — contrapartida do anterior. Preserva a pasta de perfil por padrão (`-RemoveProfile` para apagar). Recusa-se a remover a conta em uso, contas internas (RID < 1000) ou o último administrador habilitado; exige o nome digitado como confirmação, salvo com `-Force`. Sai com `2` se cancelado.
+- `listar-usuarios.ps1` — inventário somente leitura das contas locais (habilitada, admin, último logon, senha, perfil, grupos). **Não exige elevação.** `-AsObject` devolve objetos para pipeline/CSV.
 
 ## Convenções para scripts e instalações
 
@@ -142,6 +144,11 @@ Esta máquina está sendo preparada para um aluno que vai aprender Python básic
 - **Confirmar antes de baixar/instalar.** Apresente o plano (tamanho, fonte, escopo) e peça aprovação.
 - **Elevação:** gere um `.ps1` e dispare com `Start-Process powershell.exe -Verb RunAs -Wait -File`, lendo a saída de um log/transcript depois. Veja [feedback_elevated_process.md](licoes-aprendidas/feedback_elevated_process.md).
 - **Nunca versionar senha real.** Use parâmetro interativo ou variável de ambiente. Ao passar senha por linha de comando para um processo elevado, ela fica visível na lista de processos por alguns instantes.
+- **Manter os `.ps1` em ASCII puro.** O PS 5.1 lê `.ps1` sem BOM como ANSI (Windows-1252), então acento em literal de string quebra silenciosamente. Isso é especialmente perigoso ao comparar valores localizados do Windows — `Get-LocalGroupMember` devolve `ObjectClass = 'Usuário'` em pt-BR e `'User'` em en-US. **Não compare essas strings:** resolva por SID (`Get-LocalUser -SID`), como faz o `remover-usuario-admin.ps1`. Verifique com:
+  ```powershell
+  @([IO.File]::ReadAllBytes($p) | Where-Object { $_ -gt 127 }).Count   # deve ser 0
+  ```
+- **Mensagens ao usuário podem ter acento**, desde que fiquem fora dos `.ps1` (README, CLAUDE.md) ou que o arquivo seja salvo com BOM UTF-8.
 - **`wsl` emite UTF-16 LE** — force `[Console]::OutputEncoding = [System.Text.Encoding]::Unicode` antes de parsear a saída.
 - **Testar scripts para PS7 via `pwsh -File <script.ps1>`** (não `-Command`), porque o PS 5.1 pai interpola variáveis dentro de aspas duplas antes de passar ao filho.
 - **Erros de PSReadLine "doesn't support virtual terminal processing"** acontecem em sessões não-interativas (como as do harness); guarde essas chamadas com `$Host.UI.SupportsVirtualTerminal` + try/catch.

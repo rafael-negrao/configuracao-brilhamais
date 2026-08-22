@@ -93,6 +93,56 @@ Comportamento:
 
 > **Segurança:** nunca versione uma senha real neste repositório. Prefira a forma interativa, ou passe a senha por variável de ambiente (`-Password $env:BM_ADMIN_PWD`). Ao usar `-Password` junto com auto-elevação, a senha fica visível na linha de comando do processo elevado por alguns instantes — para uso sensível, rode a partir de um PowerShell já elevado e deixe o script perguntar.
 
+## Listar contas locais
+
+O `listar-usuarios.ps1` é **somente leitura** e **não exige elevação**. Mostra quem existe na máquina, quem é administrador, último logon, situação da senha e se há pasta de perfil.
+
+```powershell
+.\listar-usuarios.ps1                      # contas reais (esconde as internas do Windows)
+.\listar-usuarios.ps1 -AdminsOnly          # só os administradores locais
+.\listar-usuarios.ps1 -IncludeBuiltIn      # inclui Administrador, Convidado, DefaultAccount…
+.\listar-usuarios.ps1 -Detailed            # SID, caminho do perfil, descrição e grupos
+.\listar-usuarios.ps1 -AsObject | Where-Object Admin | Export-Csv contas.csv
+```
+
+Saída típica:
+
+```
+Nome             Ativa Admin Ultimo logon     Senha          Perfil
+----             ----- ----- ------------     -----          ------
+admin_brilhamais sim   SIM   nunca            nao expira     nao criado
+Usuario          sim   SIM   2026-08-22 09:18 nunca definida ok
+```
+
+## Remover a conta administrador
+
+O `remover-usuario-admin.ps1` é a contrapartida do script de criação.
+
+```powershell
+.\remover-usuario-admin.ps1                     # remove a conta, PRESERVA C:\Users\admin_brilhamais
+.\remover-usuario-admin.ps1 -RemoveProfile      # remove a conta E apaga o perfil (irreversível)
+.\remover-usuario-admin.ps1 -UserName 'suporte_bm' -Force   # sem confirmação
+```
+
+| Parâmetro | Padrão | O quê |
+|---|---|---|
+| `-UserName` | `admin_brilhamais` | Conta a remover |
+| `-RemoveProfile` | _(desligado)_ | Apaga também a pasta de perfil e o registro. **Irreversível** |
+| `-Force` | _(desligado)_ | Pula a confirmação digitada |
+
+**Por padrão o perfil é preservado** — remover a conta não apaga os arquivos do usuário. Sem `-Force`, o script exige que você **digite o nome da conta** para confirmar.
+
+Proteções — o script se recusa a prosseguir se:
+
+- a conta for **a que você está usando** no momento;
+- for uma **conta interna do Windows** (RID < 1000: `Administrador`, `Convidado`, `DefaultAccount`, `WDAGUtilityAccount`);
+- for o **último administrador local habilitado** — impede deixar a máquina sem administrador;
+- (aviso, não bloqueio) a conta tiver **sessão aberta** — faça logoff antes.
+
+Se a conta não existir, o script informa e sai com sucesso — é idempotente como os demais.
+
+Código de saída: `0` sucesso ou nada a fazer · `1` erro · `2` cancelado na confirmação.
+
 ---
 
 ## Ambiente
@@ -122,6 +172,8 @@ Tudo foi instalado via `winget` quando possível, preferencialmente com `--scope
 
 - `setup-brilhamais.ps1` — script principal de provisionamento, em 6 fases idempotentes (+ Fase 0 de preflight).
 - `criar-usuario-admin.ps1` — cria uma conta local com perfil de administrador. Idempotente, com auto-elevação (UAC).
+- `remover-usuario-admin.ps1` — remove essa conta, com proteções contra remover a conta em uso, contas internas do Windows ou o último administrador.
+- `listar-usuarios.ps1` — inventário somente leitura das contas locais. Não exige elevação.
 - `licoes-aprendidas/` — armadilhas técnicas e decisões didáticas acumuladas durante o setup. Veja o [índice](licoes-aprendidas/README.md).
 - `CLAUDE.md` — instruções para o [Claude Code](https://claude.com/claude-code) operar nesta máquina em sessões futuras. Inclui estado do setup, convenções e o que não fazer.
 - `README.md` — este arquivo.
