@@ -59,6 +59,42 @@ O script é **idempotente** — pode ser executado quantas vezes precisar. Cada 
 
 ---
 
+## Criar usuário administrador local
+
+O `criar-usuario-admin.ps1` cria (ou reconfigura) uma conta local com perfil de administrador. É independente do `setup-brilhamais.ps1` — útil para provisionar a conta de manutenção antes ou depois do setup principal.
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
+
+# Interativo: pede a senha com confirmação, sem eco na tela
+.\criar-usuario-admin.ps1
+
+# Desatendido
+.\criar-usuario-admin.ps1 -Password '<SENHA_AQUI>'
+
+# Outro nome de usuário
+.\criar-usuario-admin.ps1 -UserName 'suporte_bm' -FullName 'Suporte BrilhaMais'
+```
+
+| Parâmetro | Padrão | O quê |
+|---|---|---|
+| `-UserName` | `admin_brilhamais` | Nome da conta local |
+| `-Password` | _(solicita)_ | Senha em texto puro; se omitida, pergunta com confirmação |
+| `-FullName` | `Admin BrilhaMais` | Nome completo exibido |
+| `-Description` | `Conta administrativa local BrilhaMais` | Descrição da conta |
+| `-PasswordExpires` | _(desligado)_ | Faz a senha seguir a política de expiração do sistema |
+
+Comportamento:
+
+- **Idempotente** — se a conta já existir, apenas redefine senha/dados em vez de falhar.
+- **Auto-elevação** — detecta sessão sem privilégio e reabre elevado via UAC.
+- **Independente de idioma** — resolve o grupo Administradores pelo SID `S-1-5-32-544`, então funciona em Windows pt-BR, en-US ou qualquer outro.
+- **Log** — grava `criar-usuario-admin.log` ao lado do script (ignorado pelo `.gitignore`).
+
+> **Segurança:** nunca versione uma senha real neste repositório. Prefira a forma interativa, ou passe a senha por variável de ambiente (`-Password $env:BM_ADMIN_PWD`). Ao usar `-Password` junto com auto-elevação, a senha fica visível na linha de comando do processo elevado por alguns instantes — para uso sensível, rode a partir de um PowerShell já elevado e deixe o script perguntar.
+
+---
+
 ## Ambiente
 
 | Ferramenta | Versão | Por quê |
@@ -85,6 +121,7 @@ Tudo foi instalado via `winget` quando possível, preferencialmente com `--scope
 ## Estrutura
 
 - `setup-brilhamais.ps1` — script principal de provisionamento, em 6 fases idempotentes (+ Fase 0 de preflight).
+- `criar-usuario-admin.ps1` — cria uma conta local com perfil de administrador. Idempotente, com auto-elevação (UAC).
 - `licoes-aprendidas/` — armadilhas técnicas e decisões didáticas acumuladas durante o setup. Veja o [índice](licoes-aprendidas/README.md).
 - `CLAUDE.md` — instruções para o [Claude Code](https://claude.com/claude-code) operar nesta máquina em sessões futuras. Inclui estado do setup, convenções e o que não fazer.
 - `README.md` — este arquivo.
