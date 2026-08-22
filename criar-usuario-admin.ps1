@@ -15,7 +15,9 @@
     Nome do usuario local. Padrao: admin_brilhamais
 
 .PARAMETER Password
-    Senha em texto puro. Se omitida, o script solicita de forma segura.
+    Senha em texto puro. Se omitida - que e o modo recomendado - o script
+    solicita a senha de forma segura: digitacao sem eco na tela, confirmacao
+    em seguida e ate 3 tentativas caso as duas nao confiram.
     ATENCAO: ao usar este parametro com auto-elevacao, a senha trafega na linha
     de comando do processo elevado e fica visivel na lista de processos por
     alguns instantes. Para uso sensivel, execute o script a partir de um
@@ -131,21 +133,57 @@ try {
         $securePw = ConvertTo-SecureString $Password -AsPlainText -Force
     }
     else {
-        $securePw = Read-Host -Prompt "Digite a senha para '$UserName'" -AsSecureString
-        $confirm  = Read-Host -Prompt "Confirme a senha" -AsSecureString
+        Write-Host ""
+        Write-Host "  ------------------------------------------" -ForegroundColor Cyan
+        Write-Host "   Defina a senha da conta '$UserName'"        -ForegroundColor Cyan
+        Write-Host "  ------------------------------------------" -ForegroundColor Cyan
+        Write-Host "   A digitacao nao aparece na tela." -ForegroundColor DarkGray
+        Write-Host "   Politica padrao do Windows pede pelo menos 3 destes:" -ForegroundColor DarkGray
+        Write-Host "   maiuscula, minuscula, numero, simbolo." -ForegroundColor DarkGray
+        Write-Host ""
 
-        $b1 = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($securePw)
-        $b2 = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($confirm)
-        try {
-            $p1 = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($b1)
-            $p2 = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($b2)
-            if ([string]::IsNullOrWhiteSpace($p1)) { throw "A senha nao pode ser vazia." }
-            if ($p1 -ne $p2)                       { throw "As senhas nao conferem." }
+        $tentativas = 3
+        $securePw   = $null
+
+        while ($tentativas -gt 0 -and -not $securePw) {
+            $tentativas--
+
+            $pw1 = Read-Host -Prompt "   Senha" -AsSecureString
+            $pw2 = Read-Host -Prompt "   Confirme a senha" -AsSecureString
+
+            $b1 = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($pw1)
+            $b2 = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($pw2)
+            try {
+                $p1 = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($b1)
+                $p2 = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($b2)
+
+                if ([string]::IsNullOrWhiteSpace($p1)) {
+                    Write-Host "   A senha nao pode ser vazia." -ForegroundColor Yellow
+                }
+                elseif ($p1 -ne $p2) {
+                    Write-Host "   As senhas nao conferem." -ForegroundColor Yellow
+                }
+                else {
+                    $securePw = $pw1
+                }
+            }
+            finally {
+                [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($b1)
+                [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($b2)
+            }
+
+            if (-not $securePw) {
+                if ($tentativas -gt 0) {
+                    Write-Host "   Tente de novo ($tentativas restante(s))." -ForegroundColor Yellow
+                    Write-Host ""
+                }
+                else {
+                    throw "Senha nao definida apos 3 tentativas. Nada foi alterado."
+                }
+            }
         }
-        finally {
-            [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($b1)
-            [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($b2)
-        }
+
+        Write-Host ""
     }
 
     # Criar ou atualizar ------------------------------------------------------
@@ -212,7 +250,7 @@ catch {
     exit 1
 }
 finally {
-    if ($securePw)     { $securePw.Dispose() }
-    if ($confirm)      { $confirm.Dispose() }
+    if ($securePw) { $securePw.Dispose() }
+    if ($pw2)      { $pw2.Dispose() }
     Remove-Variable Password -ErrorAction SilentlyContinue
 }

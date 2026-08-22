@@ -168,6 +168,22 @@ foreach ($s in 'listar-usuarios','criar-usuario-admin','criar-usuario-aluno','re
 
 O `criar-usuario-admin.ps1` cria (ou reconfigura) uma conta local com perfil de administrador. É independente do `setup-brilhamais.ps1` — útil para provisionar a conta de manutenção antes ou depois do setup principal.
 
+Omitindo `-Password`, o script **pergunta a senha** na janela elevada, sem eco na tela, pedindo confirmação:
+
+```
+  ------------------------------------------
+   Defina a senha da conta 'admin_brilhamais'
+  ------------------------------------------
+   A digitacao nao aparece na tela.
+   Politica padrao do Windows pede pelo menos 3 destes:
+   maiuscula, minuscula, numero, simbolo.
+
+   Senha: ********
+   Confirme a senha: ********
+```
+
+Se as duas não conferirem, ele avisa e deixa tentar de novo — até 3 vezes — em vez de abortar e obrigar a refazer tudo, UAC incluído.
+
 ```powershell
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
 
@@ -184,7 +200,7 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
 | Parâmetro | Padrão | O quê |
 |---|---|---|
 | `-UserName` | `admin_brilhamais` | Nome da conta local |
-| `-Password` | _(solicita)_ | Senha em texto puro; se omitida, pergunta com confirmação |
+| `-Password` | _(solicita)_ | Senha em texto puro. **Omitir é o modo recomendado** — o script pergunta com confirmação |
 | `-FullName` | `Admin BrilhaMais` | Nome completo exibido |
 | `-Description` | `Conta administrativa local BrilhaMais` | Descrição da conta |
 | `-PasswordExpires` | _(desligado)_ | Faz a senha seguir a política de expiração do sistema |
