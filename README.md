@@ -246,25 +246,58 @@ A senha é a mesma para todas as turmas do mesmo ano — a ideia é ser fácil d
 | `-ExigirTrocaSenha` | _(desligado)_ | Obriga o aluno a definir nova senha no primeiro logon. **Desliga** o "nunca expira" — as duas coisas são mutuamente exclusivas no Windows |
 | `-Force` | _(desligado)_ | Pula a confirmação |
 
-Ao final, o script imprime as credenciais prontas para entregar ao aluno:
+### Exemplo completo
+
+Criando a conta da **turma 3 de 2026**:
+
+```powershell
+.\criar-usuario-aluno.ps1 -Turma 3 -Ano 2026
+```
+
+O script pede elevação (UAC), cria a conta e imprime as credenciais prontas para entregar ao aluno:
 
 ```
+[2026-08-22 11:16:01] [INFO] === Inicio | turma '3' | ano 2026 | conta 'aluno_3_2026' | tipo Administrador ===
+[2026-08-22 11:16:01] [OK] Conta 'aluno_3_2026' criada.
+[2026-08-22 11:16:01] [OK] Senha configurada para nunca expirar.
+[2026-08-22 11:16:01] [OK] Adicionado ao grupo 'Administradores'.
+[2026-08-22 11:16:01] [OK] Conta habilitada.
+[2026-08-22 11:16:01] [OK] === SUCESSO ===
+
   ------------------------------------------
    Entregar ao aluno:
 
-     Usuario : aluno_3A_2026
+     Usuario : aluno_3_2026
      Senha   : Aluno@2026
 
   ------------------------------------------
+
+  Turma 3 / 2026 | grupo: Administradores
+  A senha nunca expira.
+  O perfil C:\Users\aluno_3_2026 sera criado no primeiro logon.
 ```
 
-Várias turmas de uma vez:
+Conferindo o resultado com o `listar-usuarios.ps1`:
+
+```
+Nome             Ativa Admin Ultimo logon     Senha          Perfil
+----             ----- ----- ------------     -----          ------
+admin_brilhamais sim   SIM   nunca            nao expira     nao criado
+aluno_3_2026     sim   SIM   2026-08-22 11:16 nao expira     nao criado
+Usuario          sim   SIM   2026-08-22 09:18 nunca definida ok
+```
+
+A pasta `C:\Users\aluno_3_2026` só passa a existir depois do primeiro logon do aluno. Se algo no seu setup depender desse caminho, entre com a conta uma vez antes.
+
+### Várias turmas de uma vez
 
 ```powershell
-'3A','3B','1A','1B' | ForEach-Object {
+'1','2','3','4','5' | ForEach-Object {
     .\criar-usuario-aluno.ps1 -Turma $_ -Ano 2026 -Force
 }
 ```
+
+Todas ficam com a mesma senha `Aluno@2026`, já que ela deriva apenas do ano.
 
 O limite de 20 caracteres para nome de conta no Windows é validado: `aluno_` + turma + `_` + ano dá exatamente 20 com uma turma de 9 caracteres. Turmas maiores são recusadas com mensagem explicativa.
 
