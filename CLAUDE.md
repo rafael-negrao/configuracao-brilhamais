@@ -129,7 +129,8 @@ Esta máquina está sendo preparada para um aluno que vai aprender Python básic
 
 - `setup-brilhamais.ps1` — provisionamento em 6 fases idempotentes (+ Fase 0 de preflight).
 - `criar-usuario-admin.ps1` — cria/reconfigura uma conta local de administrador. Idempotente, com auto-elevação via UAC, resolve o grupo Administradores pelo SID `S-1-5-32-544` (independe do idioma do Windows) e grava log ao lado do script.
-- `remover-usuario-admin.ps1` — contrapartida do anterior. Preserva a pasta de perfil por padrão (`-RemoveProfile` para apagar). Recusa-se a remover a conta em uso, contas internas (RID < 1000) ou o último administrador habilitado; exige o nome digitado como confirmação, salvo com `-Force`. Sai com `2` se cancelado.
+- `criar-usuario-aluno.ps1` — cria a conta local de uma turma: `-Turma 3A -Ano 2026` produz `aluno_3A_2026` com senha `Aluno@2026`. `-TipoConta Padrao` cria sem privilégio administrativo; `-ExigirTrocaSenha` força nova senha no primeiro logon (via ADSI `PasswordExpired = 1`). Valida o limite de 20 caracteres do Windows para nome de conta. Senha previsível é escolha deliberada para laboratório de aula — **não** use em máquina com RDP ou exposta.
+- `remover-usuario-admin.ps1` — contrapartida dos scripts de criação; apesar do nome, remove qualquer conta local via `-UserName`. Preserva a pasta de perfil por padrão (`-RemoveProfile` para apagar). Recusa-se a remover a conta em uso, contas internas (RID < 1000) ou o último administrador habilitado; exige o nome digitado como confirmação, salvo com `-Force`. Sai com `2` se cancelado.
 - `listar-usuarios.ps1` — inventário somente leitura das contas locais (habilitada, admin, último logon, senha, perfil, grupos). **Não exige elevação.** `-AsObject` devolve objetos para pipeline/CSV.
 
 ## Convenções para scripts e instalações

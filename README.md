@@ -87,6 +87,25 @@ Invoke-WebRequest `
 & "$env:USERPROFILE\listar-usuarios.ps1" -Detailed -IncludeBuiltIn
 ```
 
+### Criar a conta de turma (aluno)
+
+Pede elevação sozinho (UAC).
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
+Invoke-WebRequest `
+  -Uri "https://raw.githubusercontent.com/rafael-negrao/configuracao-brilhamais/main/criar-usuario-aluno.ps1" `
+  -OutFile "$env:USERPROFILE\criar-usuario-aluno.ps1"
+
+# Turma 3A de 2026 -> usuario aluno_3A_2026, senha Aluno@2026
+& "$env:USERPROFILE\criar-usuario-aluno.ps1" -Turma 3A -Ano 2026
+
+# Sem privilegio de administrador
+& "$env:USERPROFILE\criar-usuario-aluno.ps1" -Turma 3A -Ano 2026 -TipoConta Padrao
+```
+
 ### Criar o usuário administrador
 
 Pede elevação sozinho (UAC).
@@ -135,7 +154,7 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 $base = "https://raw.githubusercontent.com/rafael-negrao/configuracao-brilhamais/main"
-foreach ($s in 'listar-usuarios','criar-usuario-admin','remover-usuario-admin') {
+foreach ($s in 'listar-usuarios','criar-usuario-admin','criar-usuario-aluno','remover-usuario-admin') {
     Invoke-WebRequest -Uri "$base/$s.ps1" -OutFile "$env:USERPROFILE\$s.ps1"
     Write-Host "baixado: $s.ps1"
 }
@@ -200,9 +219,62 @@ admin_brilhamais sim   SIM   nunca            nao expira     nao criado
 Usuario          sim   SIM   2026-08-22 09:18 nunca definida ok
 ```
 
+## Criar conta de turma (aluno)
+
+O `criar-usuario-aluno.ps1` cria uma conta local por turma, com nome e senha derivados da turma e do ano letivo.
+
+```powershell
+.\criar-usuario-aluno.ps1 -Turma 3A -Ano 2026
+```
+
+| Entrada | Resultado |
+|---|---|
+| Turma `3A`, ano `2026` | usuário **`aluno_3A_2026`**, senha **`Aluno@2026`** |
+| Turma `1B`, ano `2026` | usuário **`aluno_1B_2026`**, senha **`Aluno@2026`** |
+| Turma `INFO-2`, ano `2027` | usuário **`aluno_INFO-2_2027`**, senha **`Aluno@2027`** |
+
+A senha é a mesma para todas as turmas do mesmo ano — a ideia é ser fácil de ditar em voz alta no laboratório. Ela satisfaz a política de complexidade padrão do Windows (maiúscula, minúscula, número e símbolo).
+
+| Parâmetro | Padrão | O quê |
+|---|---|---|
+| `-Turma` | _(obrigatório)_ | Letras, números e hífen, até 9 caracteres (`3A`, `101`, `INFO-2`) |
+| `-Ano` | ano corrente | Ano letivo, de 2000 a 2100 |
+| `-Password` | `Aluno@<ano>` | Sobrescreve a senha padrão |
+| `-TipoConta` | `Administrador` | `Padrao` cria sem privilégio administrativo |
+| `-ExigirTrocaSenha` | _(desligado)_ | Obriga o aluno a definir nova senha no primeiro logon |
+| `-Force` | _(desligado)_ | Pula a confirmação |
+
+Ao final, o script imprime as credenciais prontas para entregar ao aluno:
+
+```
+  ------------------------------------------
+   Entregar ao aluno:
+
+     Usuario : aluno_3A_2026
+     Senha   : Aluno@2026
+
+  ------------------------------------------
+```
+
+Várias turmas de uma vez:
+
+```powershell
+'3A','3B','1A','1B' | ForEach-Object {
+    .\criar-usuario-aluno.ps1 -Turma $_ -Ano 2026 -Force
+}
+```
+
+O limite de 20 caracteres para nome de conta no Windows é validado: `aluno_` + turma + `_` + ano dá exatamente 20 com uma turma de 9 caracteres. Turmas maiores são recusadas com mensagem explicativa.
+
+> ⚠️ **Senha previsível + privilégio de administrador.** `Aluno@2026` é adequado a um laboratório de aula, onde a prioridade é o aluno conseguir entrar. Não use esse padrão em máquina com RDP habilitado, exposta à internet, ou que guarde dados de terceiros. Se o aluno não precisa instalar programas, prefira `-TipoConta Padrao` — a conta funciona igual para estudar Python e web, sem o risco extra.
+
 ## Remover a conta administrador
 
-O `remover-usuario-admin.ps1` é a contrapartida do script de criação.
+O `remover-usuario-admin.ps1` é a contrapartida dos scripts de criação. Apesar do nome, serve para **qualquer** conta local — inclusive as de turma:
+
+```powershell
+.\remover-usuario-admin.ps1 -UserName 'aluno_3A_2026'
+```
 
 ```powershell
 .\remover-usuario-admin.ps1                     # remove a conta, PRESERVA C:\Users\admin_brilhamais
@@ -280,7 +352,8 @@ Medido em **2026-08-22** em `DESKTOP-386PSAG` (Windows 11 Home Single Language, 
 
 - `setup-brilhamais.ps1` — script principal de provisionamento, em 6 fases idempotentes (+ Fase 0 de preflight).
 - `criar-usuario-admin.ps1` — cria uma conta local com perfil de administrador. Idempotente, com auto-elevação (UAC).
-- `remover-usuario-admin.ps1` — remove essa conta, com proteções contra remover a conta em uso, contas internas do Windows ou o último administrador.
+- `criar-usuario-aluno.ps1` — cria a conta de uma turma (`aluno_<turma>_<ano>`, senha `Aluno@<ano>`).
+- `remover-usuario-admin.ps1` — remove uma conta local, com proteções contra remover a conta em uso, contas internas do Windows ou o último administrador.
 - `listar-usuarios.ps1` — inventário somente leitura das contas locais. Não exige elevação.
 - `licoes-aprendidas/` — armadilhas técnicas e decisões didáticas acumuladas durante o setup. Veja o [índice](licoes-aprendidas/README.md).
 - `CLAUDE.md` — instruções para o [Claude Code](https://claude.com/claude-code) operar nesta máquina em sessões futuras. Inclui estado do setup, convenções e o que não fazer.
